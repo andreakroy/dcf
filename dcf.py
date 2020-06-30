@@ -1,40 +1,39 @@
 import requests
 import argparse as ap
 from bs4 import BeautifulSoup
+import yfinance as yf
+import json
 
 class stock:
-    def __init__(self, ticker: str, cik: int, name: str, sic_desc: str,
-            sic_code: int):
-        self.ticker = ticker.upper()
-        self.cik = cik
+    def __init__(self, ticker: str, name: str, sector: str, beta: float):
+        self.ticker = ticker
         self.name = name
-        self.sic_desc = sic_desc
-        self.sic_code = sic_code
+        self.sector = sector
+        self.beta = beta
     
-    def __str__(self):
-        return "{} ({})\nCIK: {}\nSIC: {} ({})".format(self.name, self.ticker,
-                self.cik, self.sic_desc, self.sic_code)
+    # using Risk Free Rate + [Beta x ( Expected Market Return - Risk Free Rate )] to
+    # estimate the cost of equity.
+    # Risk Free Rate is assumed to be the current rate of return on a 10 year
+    # treasury bond. Expected market return is conservatively assumed to be
+    # roughly 8%
+    def cost_of_equity(self):
+        rfr = get_risk_free_rate()
+        return rfr + self.beta * (.08 - rfr)
 
-# Gets a compny's basic information from the Edgar database and returns a
-# 'stock' object storing the information.
-def get_company_info(ticker) -> stock:
+    def __str__(self):
+        return "{} ({})\nSector: {}".format(self.name, self.ticker, self.sector)
+
+# Gets a company's basic information from the Yahoo Finance API
+def get_company_data(ticker) -> stock:
     assert(isinstance(ticker, str))
-    xml = requests.get('https://www.sec.gov/cgi-bin/browse-edgar',
-            params={'CIK': ticker, 'Find': 'Search', 'owner': 'exclude',
-                'action': 'getcompany', 'output': 'atom'})
-    if xml.status_code != requests.codes.ok:
-        return None
-    page = BeautifulSoup(xml.text, 'lxml')
-    try: 
-        return stock(
-            ticker,
-            int(page.cik.text),
-            page.find('conformed-name').text,
-            page.find('assigned-sic-desc').text,
-            page.find('assigned-sic').text
-            )
-    except:
-        return None
+    t = yf.Ticker(ticker)
+    info = t.info
+    return stock(
+            ticker.upper(),
+            info['longName'],
+            info['sector'],
+            float(info['beta']),
+        )
 
 # Gets the current Risk Free Rate (the 10 Year US Treasury
 # Bond yield) by querying the US Treasury website.
@@ -48,12 +47,5 @@ def get_risk_free_rate() -> float:
 def wacc(re, rd, e, d, t, v):
     return 0
 
-# using Risk Free Rate + [Beta x ( Expected Market Return - Risk Free Rate )] to
-# estimate the cost of equity.
-# Risk Free Rate is assumed to be the current rate of return on a 10 year
-# treasury bond. Expected market return
-def cost_of_equity(beta, rfr, emr):
-    return 0
-
-print(get_risk_free_rate())
-
+msft = get_company_data("MSFT")
+print(msft.cost_of_equity())
