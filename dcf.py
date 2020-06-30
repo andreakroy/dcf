@@ -21,19 +21,30 @@ def get_company_info(ticker) -> stock:
     assert(isinstance(ticker, str))
     xml = requests.get('https://www.sec.gov/cgi-bin/browse-edgar',
             params={'CIK': ticker, 'Find': 'Search', 'owner': 'exclude',
-                'action': 'getcompany', 'output': 'atom'}).text
-    page = BeautifulSoup(xml, "lxml")
+                'action': 'getcompany', 'output': 'atom'})
+    if xml.status_code != requests.codes.ok:
+        return None
+    page = BeautifulSoup(xml.text, 'lxml')
     try: 
         return stock(
             ticker,
             int(page.cik.text),
-            page.find("conformed-name").text,
-            page.find("assigned-sic-desc").text,
-            page.find("assigned-sic").text
+            page.find('conformed-name').text,
+            page.find('assigned-sic-desc').text,
+            page.find('assigned-sic').text
             )
     except:
         return None
-                        
+
+# Gets the current Risk Free Rate (the 10 Year US Treasury
+# Bond yield) by querying the US Treasury website.
+def get_risk_free_rate() -> float:
+    xml = requests.get('https://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData?$filter=month(NEW_DATE)%20eq%206%20and%20year(NEW_DATE)%20eq%202020')
+    if xml.status_code != requests.codes.ok:
+        return None
+    page = BeautifulSoup(xml.text, "lxml")
+    return float(page.find_all('d:bc_10year')[-1].text)
+
 def wacc(re, rd, e, d, t, v):
     return 0
 
@@ -44,5 +55,5 @@ def wacc(re, rd, e, d, t, v):
 def cost_of_equity(beta, rfr, emr):
     return 0
 
-print(get_company_info("tmubb"))
+print(get_risk_free_rate())
 
