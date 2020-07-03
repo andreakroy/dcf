@@ -8,7 +8,8 @@ class stock:
     def __init__(self, ticker: str, cik: int, name: str, sector: str,
             market_value: float, shares_outstanding: int,
             last_10k_date: str, accession_num: str,  beta: float,
-            net_income: int, tax_expense: int, interest_expense: int):
+            net_income: int, tax_expense: int, interest_expense: int,
+            accounts_payable: int, total_debt: int):
         self.ticker = ticker
         self.cik = cik
         self.name = name
@@ -22,6 +23,8 @@ class stock:
         self.net_income = net_income
         self.tax_expense = tax_expense
         self.interest_expense = interest_expense
+        self.accounts_payable = accounts_payable
+        self.total_debt = total_debt
     
     # using CAPM formuala:
     # Risk Free Rate + [Beta x ( Expected Market Return - Risk Free Rate )]
@@ -42,7 +45,7 @@ class stock:
 
     # using the formula EBIT / Interest Expenses
     def interest_coverage_ratio(self, ebit) -> float:
-        return ebit    / self.interest_expense
+        return ebit / self.interest_expense
     
     # using tables from A. Damodaran to relate interest coverage ratio to
     # default spread.
@@ -64,12 +67,16 @@ class stock:
         elif ic > .65: return .0864
         elif ic > .2: return .1132
         else: return .1512
-
+    
+    # Market Value of the firm's equity.
+    # using Market Value of Equity = 
     def market_value_equity(self):
         return self.market_value * self.shares_outstanding
-
+    
+    # Getting market value of debt from the balance sheet
+    # using Market Value of Debt = Total Debt - Accounts Payable
     def market_value_debt(self):
-        return 0
+        return self.total_debt - self.accounts_payable
     
     # calculation of Earnings Before Interest and Taxes
     # using EBIT = Net Income + Interest Expense + Tax Expense
@@ -151,11 +158,13 @@ def get_company_data(ticker) -> stock:
         cik,
         info['longName'], 
         page.find('assigned-sic-desc').text,
-        info['fiftyDayAverage'],
+        info['bid'],
         info['sharesOutstanding'],
         report_entry.find('filing-date').text,
         acc_num,
         float(info['beta']),
+        0,
+        0,
         0,
         0,
         0
