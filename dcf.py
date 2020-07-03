@@ -24,23 +24,48 @@ class stock:
     # Risk Free Rate is assumed to be the current rate of return on a 10 year
     # treasury bond. Expected market return is conservatively assumed to be
     # roughly 8%
-    def cost_of_equity(self, rfr):
+    def cost_of_equity(self, rfr) -> float:
         return rfr + self.beta * (.08 - rfr)
-   
+    
+    # using Cost of Debt = [Risk Free Rate + Default Spread] x [1 - Tax Rate]
+    def cost_of_debt(self, rfr, tr, ir) -> float:
+        return (rfr + self.default_spread()) * (1 - self.effective_tax_rate())
+    
+    # using Effective Tax Rate = Pretax Income / Tax Expense
+    #                          = (Net Income + Tax Expense) / Tax Expense
+    def effective_tax_rate(self) -> float:
+        return (self.net_income + self.tax_expense) / self.tax_expense
+
     # using the formula EBIT / Interest Expenses
-    def interest_coverage_ratio(self):
+    def interest_coverage_ratio(self) -> float:
         return self.ebit() / self.interest_expense
     
     # using tables from A. Damodaran to relate interest coverage ratio to
     # default spread.
-    def default_spread(self):
+    # [http://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.htm]
+    def default_spread(self) -> float:
         ic = self.interest_coverage_ratio
+        if ic > 8.50: return .0063
+        elif ic > 6.5: return .0078
+        elif ic > 5.5: return .0098
+        elif ic > 4.25: return .0108
+        elif ic > 3: return .0122
+        elif ic > 2.5: return .0156
+        elif ic > 2.25: return .0200
+        elif ic > 2: return .0240
+        elif ic > 1.75: return .0351
+        elif ic > 1.5: return .0421
+        elif ic > 1.25: return .0515
+        elif ic > .8: return .0820
+        elif ic > .65: return .0864
+        elif ic > .2: return .1132
+        else: return .1512
 
 
     
     # calculation of Earnings Before Interest and Taxes
     # using EBIT = Net Income + Interest Expense + Tax Expense
-    def ebit(self)
+    def ebit(self):
         return self.net_income + self.tax_expense + self.interest_expense
 
     def __str__(self):
