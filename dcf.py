@@ -5,13 +5,17 @@ import yfinance as yf
 import json
 import re
 class stock:
-    def __init__(self, ticker: str, cik: int, name: str, sector: str, 
+    def __init__(self, ticker: str, cik: int, name: str, sector: str,
+            market_value: float, shares_outstanding: int,
             last_10k_date: str, accession_num: str,  beta: float,
             net_income: int, tax_expense: int, interest_expense: int):
         self.ticker = ticker
         self.cik = cik
         self.name = name
         self.sector = sector
+        # using 50 Day MA to approximate market value
+        self.market_value = market_value
+        self.shares_outstanding = shares_outstanding
         self.last_10k_date = last_10k_date
         self.accession_num = accession_num
         self.beta = beta
@@ -28,8 +32,8 @@ class stock:
         return rfr + self.beta * (.08 - rfr)
     
     # using Cost of Debt = [Risk Free Rate + Default Spread] x [1 - Tax Rate]
-    def cost_of_debt(self, rfr, tr, ir) -> float:
-        return (rfr + self.default_spread()) * (1 - self.effective_tax_rate())
+    def cost_of_debt(self, rfr, ds, tr) -> float:
+        return (rfr + ds) * (1 - tr)
     
     # using Effective Tax Rate = Pretax Income / Tax Expense
     #                          = (Net Income + Tax Expense) / Tax Expense
@@ -37,8 +41,8 @@ class stock:
         return (self.net_income + self.tax_expense) / self.tax_expense
 
     # using the formula EBIT / Interest Expenses
-    def interest_coverage_ratio(self) -> float:
-        return self.ebit() / self.interest_expense
+    def interest_coverage_ratio(self, ebit) -> float:
+        return ebit    / self.interest_expense
     
     # using tables from A. Damodaran to relate interest coverage ratio to
     # default spread.
@@ -61,16 +65,38 @@ class stock:
         elif ic > .2: return .1132
         else: return .1512
 
+    def market_value_equity(self):
+        return self.market_value * self.shares_outstanding
 
+    def market_value_debt(self):
+        return 0
     
     # calculation of Earnings Before Interest and Taxes
     # using EBIT = Net Income + Interest Expense + Tax Expense
     def ebit(self):
         return self.net_income + self.tax_expense + self.interest_expense
+    
+    # using WACC = E / V * Re + D / V * Rd * (1 - T)
+    # where ...
+    # E = market value of equity = Market Value * Shares Outstanding
+    # V = total market value of financing (E + D)
+    # D = market value of debt
+    # Re = cost of equity
+    # Rd = cost of debt
+    # T = effective tax rate = Tax Expense / Income Before Taxes
+    def wacc() -> float:
+        re = self.cost_of_equity()
+        rd = self.cost_of_debt()
+        e = self.market_value_equity()
+        t = self.tax_expense / (self.net_income - self.tax_expense)
+        v = e + d
+        return (e * re) / v + (d * rd * (1 - t)) / v
+
 
     def __str__(self):
-        return '{} ({} - CIK: {})\nSector: {}\nLast 10-K ({}): {}'.format(
+        return '{} ({} - CIK: {})\nSector: {}\nPrice: {}\nLast 10-K ({}): {}'.format(
                 self.name, self.ticker, self.cik, self.sector,
+                self.market_value,
                 self.accession_num, self.last_10k_date)
 
 # Gets a company's basic information from the Yahoo Finance API and Edgar
@@ -88,7 +114,6 @@ def get_company_data(ticker) -> stock:
     # pull data from Yahoo Finance API
     t = yf.Ticker(ticker)
     info = t.info
-    
     # find the accession number latest annual report (SEC 10-K)
     # assumes that the latest annual report is the first in the list
     # returned
@@ -126,6 +151,8 @@ def get_company_data(ticker) -> stock:
         cik,
         info['longName'], 
         page.find('assigned-sic-desc').text,
+        info['fiftyDayAverage'],
+        info['sharesOutstanding'],
         report_entry.find('filing-date').text,
         acc_num,
         float(info['beta']),
@@ -142,9 +169,6 @@ def get_risk_free_rate() -> float:
         return None
     page = BeautifulSoup(xml.text, "lxml")
     return float(page.find_all('d:bc_10year')[-1].text)
-
-def wacc(re, rd, e, d, t, v):
-    return 0
 
 msft = get_company_data("goog")
 print(msft)
